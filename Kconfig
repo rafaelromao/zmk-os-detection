@@ -1,0 +1,65 @@
+# Kconfig functions split their arguments on commas, so the compatible (which
+# contains one) must go through a variable first. Same pattern as ZMK itself.
+DT_COMPAT_ZMK_OS_DETECTION := zmk,os-detection
+
+config ZMK_OS_DETECTION
+ bool "Drive a layer from the operating system detected on the host"
+ default $(dt_compat_enabled,$(DT_COMPAT_ZMK_OS_DETECTION))
+ depends on !ZMK_SPLIT || ZMK_SPLIT_ROLE_CENTRAL
+ help
+   Watches how the host reads the keyboard's descriptors -- over USB while it
+   enumerates, over BLE while it discovers services -- and turns the layer
+   named by a zmk,os-detection node on or off to match the operating system
+   that behaviour points at.
+
+   Enabled automatically when a zmk,os-detection node is present in the
+   keymap. Only built on the central/unibody side, which is the side with a
+   host.
+
+   The two transports are independent and each can be turned off on its own.
+   Neither is required: with both off the node is inert.
+
+if ZMK_OS_DETECTION
+
+config ZMK_OS_DETECTION_USB
+ bool "Fingerprint the host's USB enumeration"
+ default y
+ depends on ZMK_USB && USB_DEVICE_STACK
+ select USB_DEVICE_BOS
+ help
+   Counts the shape of the GET_DESCRIPTOR(STRING) requests the host makes
+   while enumerating. macOS probes each descriptor with a 2-byte header read
+   and then re-reads it in full; Linux reads every string directly at 255.
+
+   Observed by linker-wrapping usb_handle_bos(), which Zephyr's legacy USB
+   device stack calls for every standard setup packet. That symbol only
+   exists when USB_DEVICE_BOS is set, hence the select -- see the comment in
+   src/os_detection_usb.c for what that implies for the device descriptor.
+
+config ZMK_OS_DETECTION_USB_SETTLE_MS
+ int "Quiet time (ms) after the last setup packet before the USB guess is read"
+ default 200
+ depends on ZMK_OS_DETECTION_USB
+
+config ZMK_OS_DETECTION_BLE
+ bool "Fingerprint the host's GATT service discovery"
+ default y
+ depends on ZMK_BLE
+ help
+   Counts which characteristics the host reads while discovering services.
+   A BlueZ desktop reads GAP Appearance and the DIS PnP ID on top of the HID
+   report map; macOS reads the report map and leaves those alone.
+
+   Weaker than the USB fingerprint, and blind to the difference between macOS
+   and an Android phone. Confirm it against your own hosts -- the per-profile
+   counters are logged at debug level -- before relying on it.
+
+config ZMK_OS_DETECTION_BLE_SETTLE_MS
+ int "Quiet time (ms) after the last fingerprint read before the BLE guess is read"
+ default 1000
+ depends on ZMK_OS_DETECTION_BLE
+ help
+   Larger than the USB figure because discovery reads are spread across a
+   slower connection interval.
+
+endif # ZMK_OS_DETECTION

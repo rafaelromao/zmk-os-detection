@@ -1,0 +1,55 @@
+# Copyright (c) 2026 Rafael Romão
+# SPDX-License-Identifier: MIT
+
+description: |
+    OS Detection
+
+    Drives one layer from the operating system detected on whichever host is
+    currently selected.
+
+    The layer is a mode relative to the OS the firmware was built for, so this
+    node does not name a "base OS". It names, for each detected OS, the state
+    the layer should be in. An OS in neither list -- including a host that was
+    not recognised at all -- leaves the layer alone, so whatever set it stands:
+    a zmk,persistent-layers replay, or the user.
+
+    The lists are turned into bitmasks at build time, so a name that is not a
+    known OS fails the build rather than silently never matching.
+
+compatible: "zmk,os-detection"
+
+properties:
+    layer:
+        type: int
+        required: true
+        description: |
+            The layer this node drives. It never reads or writes any other
+            layer. Use a layer held by a locking toggle: this node activates
+            and deactivates with locking, so that it cannot fight -- or be
+            quietly undone by -- a layer set with &lock_on.
+
+    activate-for:
+        type: string-array
+        required: true
+        description: |
+            Detected operating systems that turn the layer on. Valid names are
+            "macos" and "linux".
+
+    deactivate-for:
+        type: string-array
+        required: true
+        description: |
+            Detected operating systems that turn the layer off. Valid names are
+            "macos" and "linux".
+
+    settle-ms:
+        type: int
+        default: 50
+        description: |
+            How long to wait after an endpoint change before writing the layer.
+
+            Its only job is to put this node's write after every synchronous
+            listener of zmk_endpoint_changed -- notably a zmk,persistent-layers
+            replay, whose order relative to this one is decided by link order
+            and is not otherwise controllable. This is not the detection
+            debounce; those are the two Kconfig settle values.
