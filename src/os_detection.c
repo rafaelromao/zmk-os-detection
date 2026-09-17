@@ -6,6 +6,8 @@
 
 #define DT_DRV_COMPAT zmk_os_detection
 
+#include <zephyr/devicetree.h>
+
 #if DT_HAS_COMPAT_STATUS_OKAY(DT_DRV_COMPAT)
 
 #include <zephyr/kernel.h>
