@@ -4,8 +4,7 @@
  * SPDX-License-Identifier: MIT
  *
  * The USB fingerprints below follow the signatures published by
- * cormoran/zmk-feature-os-detection (MIT), which verified them against real
- * hardware. See the README for the full attribution.
+ * cormoran/zmk-feature-os-detection (MIT). See the README for the attribution.
  */
 
 #define DT_DRV_COMPAT zmk_os_detection
@@ -76,6 +75,25 @@ static void settle_work_handler(struct k_work *work) {
     LOG_DBG("os detection: usb probe=%u full=%u other=%u bos=%d/%u -> os=%d", stats.string_probe,
             stats.string_full, stats.string_other, stats.bos_seen, stats.bos_wlength, detected);
     zmk_os_detection_report_usb(detected);
+
+    /*
+     * A delivered verdict closes the window. Until this was here, SET_ADDRESS
+     * was the only thing that ever cleared the counts, which made correctness
+     * depend on the host re-addressing the device between machines -- and a KVM
+     * is exactly where it may not. One host's counts then survived into the
+     * next's, and the two rules do not tolerate that equally: the Linux rule
+     * insists on string_probe == 0, so a single leftover probe from a macOS
+     * host makes Linux undetectable for good, while the macOS rule ignores
+     * string_full and stays reachable. The result was a mode you could enter
+     * and not leave.
+     *
+     * Only on a verdict, never on UNKNOWN: a host whose descriptor reads
+     * straddle the settle window has not finished talking, and clearing there
+     * would throw away the evidence that completes the picture.
+     */
+    if (detected != ZMK_OS_UNKNOWN) {
+        memset(&stats, 0, sizeof(stats));
+    }
 }
 
 static K_WORK_DELAYABLE_DEFINE(settle_work, settle_work_handler);
