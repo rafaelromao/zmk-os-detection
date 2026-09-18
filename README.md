@@ -121,7 +121,4 @@ it sees.
 
 The descriptor-read signatures come from
 [cormoran/zmk-feature-os-detection](https://github.com/cormoran/zmk-feature-os-detection)
-(MIT), which verified them against real hardware. That module is more
-ambitious than this one -- it names Windows, iOS and Android too, and carries
-the capture notes behind every rule. Read it if you need more than two
-operating systems.
+(MIT).
