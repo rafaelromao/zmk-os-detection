@@ -70,6 +70,9 @@ SYS_INIT(os_detection_bos_init, POST_KERNEL, 0);
 
 static struct zmk_os_usb_stats stats;
 
+/* Uptime of the last setup packet counted, so a gap can be measured. */
+static int64_t last_setup_ms;
+
 static void settle_work_handler(struct k_work *work) {
     enum zmk_os detected = zmk_os_classify_usb(&stats);
     LOG_DBG("os detection: usb probe=%u full=%u other=%u bos=%d/%u -> os=%d", stats.string_probe,
@@ -102,6 +105,24 @@ static void observe(const struct usb_setup_packet *setup) {
     if (setup->bRequest != USB_SREQ_GET_DESCRIPTOR || !usb_reqtype_is_to_host(setup)) {
         return;
     }
+
+    /*
+     * A long enough silence means the packet opening it belongs to a different
+     * computer, so the counts so far describe the last one and must go.
+     *
+     * SET_ADDRESS above is meant to do this and evidently does not reach here
+     * on every enumeration -- behind a KVM the layer would enter the alt OS
+     * mode and never leave, which only happens if a macOS session's counts
+     * survive into a Linux one. This does not depend on seeing any particular
+     * request: a host's descriptor reads arrive within about 20 ms of each
+     * other (usbmon, worst case 17), and two hosts are seconds apart, so the
+     * gap itself says where one enumeration ends.
+     */
+    int64_t now = k_uptime_get();
+    if (now - last_setup_ms > CONFIG_ZMK_OS_DETECTION_USB_STALE_MS) {
+        memset(&stats, 0, sizeof(stats));
+    }
+    last_setup_ms = now;
 
     switch (USB_GET_DESCRIPTOR_TYPE(setup->wValue)) {
     case USB_DESC_STRING:

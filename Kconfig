@@ -41,6 +41,21 @@ config ZMK_OS_DETECTION_USB_SETTLE_MS
  default 200
  depends on ZMK_OS_DETECTION_USB
 
+config ZMK_OS_DETECTION_USB_STALE_MS
+ int "Quiet time (ms) after which the counts belong to a previous host"
+ default 500
+ depends on ZMK_OS_DETECTION_USB
+ help
+   One enumeration's descriptor reads arrive in a burst: usbmon captures of a
+   Linux host put the whole sequence inside 20 ms, the worst seen being 17.
+   Switching a KVM, replugging, or waking a second machine is seconds away
+   from that. A gap this long therefore means the packet after it opens a new
+   enumeration, and the counts so far describe a different computer.
+
+   Well above a burst and well below a switch, so neither boundary is near.
+   Raise it only if a host is found splitting one enumeration across a longer
+   pause than this.
+
 config ZMK_OS_DETECTION_BLE
  bool "Fingerprint the host's GATT service discovery"
  default y
